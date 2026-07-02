@@ -7,95 +7,158 @@ export default function ChatDashboard() {
   const [chat, setChat] = useState([]);
   const [history, setHistory] = useState([]);
 
-  // ✅ LOAD HISTORY FROM BACKEND (JSON FILE)
+  // =========================
+  // LOAD HISTORY
+  // =========================
   useEffect(() => {
-    fetch("http://127.0.0.1:5000/history")
-      .then((res) => res.json())
-      .then((data) => setHistory(data))
-      .catch((err) => console.log("History load error:", err));
+    axios
+      .get("http://127.0.0.1:5000/history")
+      .then((res) => {
+        console.log("HISTORY RESPONSE:", res.data);
+
+        if (Array.isArray(res.data)) {
+          setHistory(res.data);
+        } else {
+          setHistory([]);
+        }
+      })
+      .catch((err) => {
+        console.error("History Error:", err);
+        setHistory([]);
+      });
   }, []);
 
-  // ✅ SEND MESSAGE TO BACKEND
+  // =========================
+  // SEND MESSAGE
+  // =========================
   const sendMessage = async () => {
     if (!message.trim()) return;
 
-    // User message
-    const userMsg = { sender: "user", text: message };
-    setChat((prev) => [...prev, userMsg]);
+    const currentMessage = message;
+
+    // Show user message
+    setChat((prev) => [
+      ...prev,
+      {
+        sender: "user",
+        text: currentMessage,
+      },
+    ]);
+
+    setMessage("");
 
     try {
-      const res = await axios.post("http://127.0.0.1:5000/predict", {
-        text: message,
-      });
+      console.log("Sending:", currentMessage);
 
-      // Bot response
-      const botMsg = {
-        sender: "bot",
-        intent: res.data.intent,
-        confidence: res.data.confidence,
-        json: res.data,
-      };
+      const res = await axios.post(
+        "http://127.0.0.1:5000/predict",
+        {
+          text: currentMessage,
+        }
+      );
 
-      setChat((prev) => [...prev, botMsg]);
+      console.log("BACKEND RESPONSE:", res.data);
 
-      // Update sidebar history live
+      // Show bot response
+      setChat((prev) => [
+        ...prev,
+        {
+          sender: "bot",
+          intent: res.data.intent,
+          confidence: res.data.confidence,
+          json: res.data,
+        },
+      ]);
+
+      // Update history
       setHistory((prev) => [
         {
-          text: message,
+          text: currentMessage,
           intent: res.data.intent,
           confidence: res.data.confidence,
         },
         ...prev,
       ]);
     } catch (error) {
+      console.error("AXIOS ERROR:", error);
+
+      let errorData = {
+        error: "Unknown Error",
+      };
+
+      if (error.response) {
+        errorData = error.response.data;
+      } else if (error.request) {
+        errorData = {
+          error: "No response received from backend",
+        };
+      } else {
+        errorData = {
+          error: error.message,
+        };
+      }
+
       setChat((prev) => [
         ...prev,
         {
           sender: "bot",
           intent: "Error",
           confidence: 0,
-          json: { error: "Backend not reachable" },
+          json: errorData,
         },
       ]);
     }
-
-    setMessage("");
   };
 
   return (
     <div className="dashboard">
-
       {/* SIDEBAR */}
       <div className="sidebar">
         <h3>📜 Intent History</h3>
 
-        {history.length === 0 && <p>No history yet</p>}
+        {history.length === 0 ? (
+          <p>No history yet</p>
+        ) : (
+          history.map((h, i) => (
+            <div key={i} className="history">
+              <p>
+                <b>Text:</b> {h.text}
+              </p>
 
-        {history.map((h, i) => (
-          <div key={i} className="history">
-            <p><b>Text:</b> {h.text}</p>
-            <p><b>Intent:</b> {h.intent}</p>
-            <p><b>Confidence:</b> {h.confidence}%</p>
-          </div>
-        ))}
+              <p>
+                <b>Intent:</b> {h.intent}
+              </p>
+
+              <p>
+                <b>Confidence:</b> {h.confidence}%
+              </p>
+            </div>
+          ))
+        )}
       </div>
 
       {/* CHAT AREA */}
       <div className="chat-area">
         <h2>🏦 Banking Intent Chatbot</h2>
 
-        {/* CHAT BOX */}
         <div className="chat-box">
           {chat.map((c, i) => (
-            <div key={i} className={c.sender === "user" ? "user" : "bot"}>
+            <div
+              key={i}
+              className={c.sender === "user" ? "user" : "bot"}
+            >
               {c.sender === "user" ? (
                 c.text
               ) : (
                 <>
-                  <div><b>Intent:</b> {c.intent}</div>
-                  <div><b>Confidence:</b> {c.confidence}%</div>
+                  <div>
+                    <b>Intent:</b> {c.intent}
+                  </div>
 
-                  {/* JSON OUTPUT */}
+                  <div>
+                    <b>Confidence:</b> {c.confidence}%
+                  </div>
+
                   <pre className="json-box">
                     {JSON.stringify(c.json, null, 2)}
                   </pre>
@@ -108,11 +171,20 @@ export default function ChatDashboard() {
         {/* INPUT */}
         <div className="input-box">
           <input
+            type="text"
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
             placeholder="Type banking message..."
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                sendMessage();
+              }
+            }}
           />
-          <button onClick={sendMessage}>Send</button>
+
+          <button onClick={sendMessage}>
+            Send
+          </button>
         </div>
       </div>
     </div>

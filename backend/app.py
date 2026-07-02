@@ -1,109 +1,92 @@
-import json
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import pickle
 import os
-
+import pickle
+from pymongo import MongoClient
+# APP INIT
 app = Flask(__name__)
 CORS(app)
-
-# ----------------------------
-# PATH SETUP
-# ----------------------------
+# BASE DIRECTORY
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
+# MODEL PATHS
 model_path = os.path.join(BASE_DIR, "model", "logistic_model.pkl")
 vectorizer_path = os.path.join(BASE_DIR, "model", "vectorizer.pkl")
-
-history_file = os.path.join(BASE_DIR, "history.json")
-
-# ----------------------------
 # LOAD MODEL
-# ----------------------------
-with open(model_path, "rb") as f:
-    model = pickle.load(f)
+try:
+    with open(model_path, "rb") as f:
+        model = pickle.load(f)
+    with open(vectorizer_path, "rb") as f:
+        vectorizer = pickle.load(f)
+    print("Model and Vectorizer Loaded")
+except Exception as e:
+    print(" X MODEL LOAD ERROR:", e)
+# MONGODB
+MONGO_URI = "mongodb+srv://Yuvrajdb:Yuv%401010@cluster0.6okc379.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 
-with open(vectorizer_path, "rb") as f:
-    vectorizer = pickle.load(f)
+try:
+    client = MongoClient(MONGO_URI)
+    client.admin.command("ping")
+    print("MongoDB Connected Successfully")
+    db = client["banking_chatbot"]
+    collection = db["history"]
 
-# ----------------------------
+except Exception as e:
+    print(" X  MongoDB Connection Error:", e)
+# CONFIDENCE THRESHOLD
+CONFIDENCE_THRESHOLD = 70
 # HOME ROUTE
-# ----------------------------
 @app.route("/")
 def home():
-    return "Banking Intent Recognition API is running"
-
-# ----------------------------
+    return jsonify({"message": "Banking Intent API is running"})
 # PREDICT ROUTE
-# ----------------------------
 @app.route("/predict", methods=["POST"])
 def predict():
     try:
         data = request.get_json()
-
-        if not data or "text" not in data:
-            return jsonify({"error": "Please provide 'text' in JSON body"}), 400
-
+        if not data or "text" not in data: 
+            return jsonify({"error": "Please provide text"}), 400
         text = data["text"]
-
-        # Vectorize input
+        print(" Received:", text)
         X = vectorizer.transform([text])
-
-        # Predict
         prediction = model.predict(X)[0]
-
-        # Confidence
         confidence = None
+        final_intent = prediction
         if hasattr(model, "predict_proba"):
             probs = model.predict_proba(X)[0]
             confidence = round(float(max(probs)) * 100, 2)
 
+            if confidence < CONFIDENCE_THRESHOLD:
+                final_intent = "uncertain"
         result = {
             "text": text,
-            "intent": prediction,
-            "confidence": confidence
+            "intent": final_intent,
+            "confidence": confidence,
+            "threshold": CONFIDENCE_THRESHOLD
         }
 
-        # ----------------------------
-        # SAVE TO HISTORY (JSON FILE)
-        # ----------------------------
-        if os.path.exists(history_file):
-            with open(history_file, "r") as f:
-                history = json.load(f)
-        else:
-            history = []
+        print(" Result:", result)
 
-        history.append(result)
+        # Save a COPY to MongoDB
+        collection.insert_one(result.copy())
 
-        with open(history_file, "w") as f:
-            json.dump(history, f, indent=4)
-
+        # Return original dictionary
         return jsonify(result)
 
     except Exception as e:
+        print(" ..... PREDICT ERROR:", e)
         return jsonify({"error": str(e)}), 500
-
-
-# ----------------------------
 # HISTORY ROUTE
 # ----------------------------
 @app.route("/history", methods=["GET"])
 def history():
     try:
-        if os.path.exists(history_file):
-            with open(history_file, "r") as f:
-                data = json.load(f)
-        else:
-            data = []
-
+        data = list(collection.find({}, {"_id": 0}))
         return jsonify(data)
 
     except Exception as e:
+        print("HISTORY ERROR:", e)
         return jsonify({"error": str(e)}), 500
-
-
-# ----------------------------
-# RUN APP
+# RUN SERVER
 # ----------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(debug=True, host="0.0.0.0", port=5000)
