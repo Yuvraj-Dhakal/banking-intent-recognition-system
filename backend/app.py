@@ -3,11 +3,18 @@ from flask_cors import CORS
 import os
 import pickle
 from pymongo import MongoClient
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
 # APP INIT
 app = Flask(__name__)
 CORS(app)
+
 # BASE DIRECTORY
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 # MODEL PATHS
 model_path = os.path.join(BASE_DIR, "model", "logistic_model.pkl")
 vectorizer_path = os.path.join(BASE_DIR, "model", "vectorizer.pkl")
@@ -21,7 +28,7 @@ try:
 except Exception as e:
     print(" X MODEL LOAD ERROR:", e)
 # MONGODB
-MONGO_URI = "mongodb+srv://Yuvrajdb:Yuv%401010@cluster0.6okc379.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+MONGO_URI = os.getenv("MONGO_URI")
 
 try:
     client = MongoClient(MONGO_URI)
@@ -89,4 +96,5 @@ def history():
 # RUN SERVER
 # ----------------------------
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
