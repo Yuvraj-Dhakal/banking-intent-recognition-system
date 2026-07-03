@@ -316,6 +316,10 @@ Output
 * Real-time deployment on Hugging Face Spaces or cloud platforms
 
 ---
+## Live Demo
+
+Frontend: https://ornate-tanuki-908a76.netlify.app  
+Backend: https://banking-intent-recognition-system.onrender.com
 
 # Author
 
