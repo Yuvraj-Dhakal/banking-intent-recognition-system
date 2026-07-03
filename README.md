@@ -133,7 +133,7 @@ The project contains multiple datasets used during development.
 | Feature Extraction   | TF-IDF Vectorizer   |
 | Language             | English             |
 | Model Format         | Pickle (.pkl)       |
-| Confidence Threshold | 60%                 |
+| Confidence Threshold | 70%                |
 
 The model predicts the most probable banking intent and returns a confidence score for each prediction. Predictions below the configured threshold should be interpreted with additional caution.
 
