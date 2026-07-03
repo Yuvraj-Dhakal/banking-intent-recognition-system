@@ -175,7 +175,7 @@ Example Response
 {
   "intent": "receiving_money",
   "confidence": 84.68,
-  "threshold": 60
+  "threshold": 70
 }
 ```
 
