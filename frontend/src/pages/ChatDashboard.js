@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./ChatDashboard.css";
+const API_URL = "https://banking-intent-recognition-system.onrender.com";
 
 export default function ChatDashboard() {
   const [message, setMessage] = useState("");
@@ -11,8 +12,7 @@ export default function ChatDashboard() {
   // LOAD HISTORY
   // =========================
   useEffect(() => {
-    axios
-      .get("http://127.0.0.1:5000/history")
+    axios.get(`${API_URL}/history`)
       .then((res) => {
         console.log("HISTORY RESPONSE:", res.data);
 
@@ -50,12 +50,12 @@ export default function ChatDashboard() {
     try {
       console.log("Sending:", currentMessage);
 
-      const res = await axios.post(
-        "http://127.0.0.1:5000/predict",
-        {
-          text: currentMessage,
-        }
-      );
+     const res = await axios.post(
+  `${API_URL}/predict`,
+  {
+    text: currentMessage,
+  }
+);
 
       console.log("BACKEND RESPONSE:", res.data);
 
